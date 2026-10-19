@@ -1,0 +1,8 @@
+# В api/ разрешён только send.php, остальное — 403.
+# Защищает от случайно забытых файлов (index.php, debug.php, *.bak).
+<Files "send.php">
+    Require all granted
+</Files>
+<FilesMatch ".*">
+    Require all denied
+</FilesMatch>
