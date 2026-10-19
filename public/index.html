@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Bean Landing</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <main>
+        <h1>Оставьте заявку</h1>
+        <p>Мы свяжемся с вами в ближайшее время.</p>
+        
+        <form id="lead-form" novalidate>
+            <!-- Скрытые поля для защиты -->
+            <input type="hidden" name="csrf_token" id="csrf_token" value="">
+            <input type="hidden" name="form_ts" id="form_ts" value="">
+            <input type="hidden" name="submission_id" id="submission_id" value="">
+            <!-- Honeypot (ловушка для ботов) -->
+            <div style="position:absolute; left:-9999px;" aria-hidden="true">
+                <input type="text" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <div class="field">
+                <label for="name">Имя</label>
+                <input type="text" id="name" name="name" required maxlength="100">
+                <span class="error" id="error-name"></span>
+            </div>
+
+            <div class="field">
+                <label for="phone">Телефон</label>
+                <input type="tel" id="phone" name="phone" required>
+                <span class="error" id="error-phone"></span>
+            </div>
+
+            <div class="field">
+                <label for="message">Сообщение (необязательно)</label>
+                <textarea id="message" name="message" maxlength="2000"></textarea>
+                <span class="error" id="error-message"></span>
+            </div>
+
+            <button type="submit" id="submit-btn">Отправить</button>
+            <p id="form-status"></p>
+        </form>
+    </main>
+    <script src="js/form.js"></script>
+</body>
+</html>
