@@ -4,29 +4,32 @@ declare(strict_types=1);
 // true = можно отправлять, false = это дубль за окно TTL.
 // Атомарность — за счёт PRIMARY KEY на submission_id: два параллельных
 // запроса с одним UUID не пройдут оба INSERT, второй словит PDOException.
-function idempotency_check(string $submissionId, int $ttl): bool
+function idempotency_check(string $submissionId, string $phone, int $ttl): bool
 {
     $pdo = db();
     $now = time();
 
-    // Чистка старых записей: дешёвый DELETE по индексу, раз в запрос.
-    $pdo->prepare('DELETE FROM submissions WHERE created_at < ?')
-        ->execute([$now - $ttl]);
+    // Чистим старые
+    $pdo->prepare('DELETE FROM submissions WHERE created_at < ?')->execute([$now - $ttl]);
 
+    // Проверяем, был ли этот телефон за последние 10 минут
+    $stmt = $pdo->prepare('SELECT 1 FROM submissions WHERE phone = ? LIMIT 1');
+    $stmt->execute([$phone]);
+    if ($stmt->fetch()) {
+        return false; // Дубль по номеру!
+    }
+
+    // Записываем новый
     try {
-        $pdo->prepare('INSERT INTO submissions (submission_id, created_at) VALUES (?, ?)')
-            ->execute([$submissionId, $now]);
+        $pdo->prepare('INSERT INTO submissions (submission_id, phone, created_at) VALUES (?, ?, ?)')
+            ->execute([$submissionId, $phone, $now]);
         return true;
     } catch (PDOException $e) {
-        // UNIQUE violation = дубликат. SQLSTATE 23000 у MySQL и SQLite одинаковый.
-        if ($e->getCode() === '23000') {
-            return false;
-        }
+        if ($e->getCode() === '23000') return false;
         throw $e;
     }
 }
 
-// Если Телеграм упал, освобождаем UUID, чтобы клиент мог повторить отправку.
 function idempotency_release(string $submissionId): void
 {
     db()->prepare('DELETE FROM submissions WHERE submission_id = ?')->execute([$submissionId]);

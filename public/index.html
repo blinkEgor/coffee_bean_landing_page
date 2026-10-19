@@ -3,46 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coffee Bean Landing</title>
+    <title>Обжарка «Кварта» — Свежий кофе в Минске</title>
+    <meta name="description" content="Крафтовая обжарка кофе в Минске. Свежая обжарка по четвергам, доставка в пятницу.">
+    <!-- Open Graph -->
+    <meta property="og:title" content="Обжарка «Кварта» — Свежий кофе">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1559525839-b184a4d698c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <main>
-        <h1>Оставьте заявку</h1>
-        <p>Мы свяжемся с вами в ближайшее время.</p>
-        
+    <header class="hero">
+        <div class="container">
+            <h1>Свежий кофе<br>от обжарщиков</h1>
+            <p>Обжариваем по четвергам. Доставляем по Минску в пятницу. Вы пьете на 1-3 день после обжарки.</p>
+            <a href="#order" class="btn">Оставить заявку</a>
+        </div>
+    </header>
+
+    <section class="about container">
+        <h2>Мастерская «Кварта»</h2>
+        <p>Мы — Аня и Дмитрий, профессиональные бариста. С 2019 года обжариваем кофе маленькими партиями по 5 кг. Никакого пафоса, только честный продукт.</p>
+    </section>
+
+    <section class="assortment container">
+        <h2>Наш кофе</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>Эфиопия Иргачеффе</h3>
+                <p>Цветочный профиль, бергамот</p>
+                <span class="price">32 BYN / 250г</span>
+            </div>
+            <div class="card">
+                <h3>Колумбия Уила</h3>
+                <p>Карамель, красное яблоко</p>
+                <span class="price">29 BYN / 250г</span>
+            </div>
+            <div class="card">
+                <h3>Бразилия Серрадо</h3>
+                <p>Орех, шоколад, под эспрессо</p>
+                <span class="price">26 BYN / 250г</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="order" class="form-section container">
+        <h2>Оформить заявку</h2>
         <form id="lead-form" novalidate>
-            <!-- Скрытые поля для защиты -->
+            <!-- Защита -->
             <input type="hidden" name="csrf_token" id="csrf_token" value="">
             <input type="hidden" name="form_ts" id="form_ts" value="">
             <input type="hidden" name="submission_id" id="submission_id" value="">
-            <!-- Honeypot (ловушка для ботов) -->
+            <input type="hidden" name="utm_source" id="utm_source" value="">
+            <input type="hidden" name="utm_medium" id="utm_medium" value="">
+            
             <div style="position:absolute; left:-9999px;" aria-hidden="true">
                 <input type="text" name="website" tabindex="-1" autocomplete="off">
             </div>
 
             <div class="field">
-                <label for="name">Имя</label>
-                <input type="text" id="name" name="name" required maxlength="100">
+                <label for="name">Как вас зовут?</label>
+                <input type="text" id="name" name="name" required maxlength="100" placeholder="Имя">
                 <span class="error" id="error-name"></span>
             </div>
 
             <div class="field">
                 <label for="phone">Телефон</label>
-                <input type="tel" id="phone" name="phone" required>
+                <input type="tel" id="phone" name="phone" required placeholder="+375 (XX) XXX-XX-XX">
                 <span class="error" id="error-phone"></span>
             </div>
 
             <div class="field">
-                <label for="message">Сообщение (необязательно)</label>
-                <textarea id="message" name="message" maxlength="2000"></textarea>
-                <span class="error" id="error-message"></span>
+                <label for="request_type">Что вас интересует?</label>
+                <select id="request_type" name="request_type" required>
+                    <option value="subscription">Подписка на кофе</option>
+                    <option value="single">Разовый заказ</option>
+                    <option value="question">Вопрос</option>
+                </select>
             </div>
 
-            <button type="submit" id="submit-btn">Отправить</button>
+            <div class="field">
+                <label for="message">Комментарий (необязательно)</label>
+                <textarea id="message" name="message" rows="3" maxlength="2000"></textarea>
+            </div>
+
+            <button type="submit" id="submit-btn" class="btn">Отправить</button>
             <p id="form-status"></p>
         </form>
-    </main>
+    </section>
+
+    <footer class="container">
+        <p>г. Минск, ул. Короля, 9<br>Пн–Пт: 08:00–20:00 | Сб–Вс: 10:00–18:00</p>
+        <p>Доставка по пятницам. От 50 BYN — бесплатно.</p>
+    </footer>
     <script src="js/form.js"></script>
 </body>
 </html>

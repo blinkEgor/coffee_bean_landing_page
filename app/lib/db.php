@@ -42,8 +42,10 @@ function db_ensure_schema(PDO $pdo): void
             );
             CREATE TABLE IF NOT EXISTS submissions (
                 submission_id TEXT PRIMARY KEY,
+                phone         TEXT NOT NULL,
                 created_at    INTEGER NOT NULL
             );
+            CREATE INDEX IF NOT EXISTS idx_sub_phone ON submissions(phone, created_at);
             CREATE INDEX IF NOT EXISTS idx_sub_created ON submissions(created_at);
         ");
     } elseif ($driver === 'mysql') {
@@ -55,7 +57,9 @@ function db_ensure_schema(PDO $pdo): void
 
             CREATE TABLE IF NOT EXISTS submissions (
                 submission_id CHAR(36) PRIMARY KEY,
+                phone         VARCHAR(20) NOT NULL,
                 created_at    INT UNSIGNED NOT NULL,
+                INDEX idx_sub_phone (phone, created_at),
                 INDEX idx_sub_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");

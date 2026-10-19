@@ -39,5 +39,13 @@ function validate_form(array $input): array
         $clean['message'] = $message;
     }
 
+    // --- request_type ---
+    $requestType = trim((string)($input['request_type'] ?? 'question'));
+    $allowedTypes = ['subscription', 'single', 'question'];
+    if (!in_array($requestType, $allowedTypes, true)) {
+        $requestType = 'question'; // Дефолт, если пришел мусор
+    }
+    $clean['request_type'] = $requestType;
+
     return [$clean, $errors];
 }

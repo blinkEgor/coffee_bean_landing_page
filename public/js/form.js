@@ -2,131 +2,87 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('lead-form');
     const btn = document.getElementById('submit-btn');
     const status = document.getElementById('form-status');
+    const phoneInput = document.getElementById('phone');
     
-    const csrfInput = document.getElementById('csrf_token');
-    const tsInput = document.getElementById('form_ts');
-    const uuidInput = document.getElementById('submission_id');
+    // Сбор UTM
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('utm_source')) document.getElementById('utm_source').value = urlParams.get('utm_source');
+    if (urlParams.has('utm_medium')) document.getElementById('utm_medium').value = urlParams.get('utm_medium');
 
-    // 1. Инициализация: получаем CSRF и ставим метку времени
+    // Маска телефона (базовая)
+    phoneInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.startsWith('375')) val = val.substring(3);
+        if (val.length > 9) val = val.substring(0, 9);
+        let formatted = '+375 ';
+        if (val.length > 0) formatted += '(' + val.substring(0, 2);
+        if (val.length > 2) formatted += ') ' + val.substring(2, 5);
+        if (val.length > 5) formatted += '-' + val.substring(5, 7);
+        if (val.length > 7) formatted += '-' + val.substring(7, 9);
+        e.target.value = formatted;
+    });
+
     async function initForm() {
         try {
             const res = await fetch('/api/token');
             const data = await res.json();
             if (data.ok) {
-                csrfInput.value = data.token;
-                // Время заполнения формы (Unix timestamp в секундах)
-                tsInput.value = Math.floor(Date.now() / 1000);
-                // Генерируем UUID (нативный, если браузер старый — fallback)
-                uuidInput.value = crypto.randomUUID ? crypto.randomUUID() : generateUUID();
-            } else {
-                btn.disabled = true;
-                status.textContent = 'Ошибка инициализации формы. Обновите страницу.';
-            }
+                document.getElementById('csrf_token').value = data.token;
+                document.getElementById('form_ts').value = Math.floor(Date.now() / 1000);
+                document.getElementById('submission_id').value = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => (Math.random() * 16 | 0).toString(16));
+            } else { throw new Error(); }
         } catch (e) {
-            btn.disabled = true;
-            status.textContent = 'Нет связи с сервером. Обновите страницу.';
+            btn.disabled = true; status.textContent = 'Ошибка инициализации. Обновите страницу.'; status.style.color = 'red';
         }
     }
 
-    // 2. Отправка
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        btn.disabled = true;
-        btn.textContent = 'Отправка...';
-        status.textContent = '';
         
-        // Очистка старых ошибок
+        // Жесткая проверка телефона перед отправкой
+        const phoneDigits = phoneInput.value.replace(/\D/g, '');
+        if (phoneDigits.length !== 12 || !phoneInput.value.startsWith('+375')) {
+            document.getElementById('error-phone').textContent = 'Введите корректный белорусский номер';
+            return;
+        }
+        
+        btn.disabled = true; btn.textContent = 'Отправка...'; status.textContent = '';
         document.querySelectorAll('.error').forEach(el => el.textContent = '');
 
-        const formData = new FormData(form);
-
         try {
-            const res = await fetch('/api/send', {
-                method: 'POST',
-                body: formData
-            });
+            const res = await fetch('/api/send', { method: 'POST', body: new FormData(form) });
             const data = await res.json();
 
             if (data.ok) {
-                status.textContent = 'Заявка успешно отправлена!';
-                status.style.color = 'green';
-                form.reset();
-                // Переинициализируем токен и UUID для следующей заявки
-                initForm(); 
+                status.textContent = 'Заявка отправлена! Мы свяжемся с вами.'; status.style.color = 'green';
+                form.reset(); initForm();
+                ['name', 'phone', 'message'].forEach(id => sessionStorage.removeItem('form_' + id));
             } else {
-                // Обработка ошибок валидации
                 if (data.error === 'validation' && data.fields) {
                     for (const [field, msg] of Object.entries(data.fields)) {
                         const errEl = document.getElementById('error-' + field);
                         if (errEl) errEl.textContent = msg;
                     }
-                    status.textContent = 'Проверьте правильность заполнения.';
-                    
-                    // Если ошибка валидации — разрешаем исправить и отправить снова
-                    btn.disabled = false;
-                    btn.textContent = 'Отправить';
-                } 
-                else if (data.error === 'too_fast') {
-                    status.textContent = 'Слишком быстро. Попробуйте ещё раз.';
-                    btn.disabled = false;
-                    btn.textContent = 'Отправить';
-                } 
-                else if (data.error === 'rate_limit') {
-                    status.textContent = 'Слишком много заявок. Подождите 10 минут.';
-                    btn.textContent = 'Заблокировано (10 мин)';
-                    
-                    // Разблокируем кнопку через 10 минут (600 000 мс)
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.textContent = 'Отправить';
-                        status.textContent = 'Можете попробовать снова.';
-                        status.style.color = 'inherit';
-                    }, 600000);
-                } 
-                else {
-                    // Ошибка Телеграма или 500
-                    status.textContent = 'Ошибка отправки. Попробуйте позже.';
-                    btn.disabled = false;
-                    btn.textContent = 'Отправить';
+                    status.textContent = 'Проверьте заполнение.'; btn.disabled = false; btn.textContent = 'Отправить';
+                } else if (data.error === 'rate_limit' || data.error === 'duplicate') {
+                    status.textContent = 'Слишком много заявок. Подождите 10 минут.'; btn.textContent = 'Заблокировано';
+                    setTimeout(() => { btn.disabled = false; btn.textContent = 'Отправить'; }, 600000);
+                } else {
+                    status.textContent = 'Ошибка сервера. Попробуйте позже.'; btn.disabled = false; btn.textContent = 'Отправить';
                 }
                 status.style.color = 'red';
             }
         } catch (err) {
-            status.textContent = 'Сетевая ошибка. Проверьте интернет.';
-            status.style.color = 'red';
-            btn.disabled = false;
-            btn.textContent = 'Отправить';
+            status.textContent = 'Нет связи. Проверьте интернет.'; status.style.color = 'red'; btn.disabled = false; btn.textContent = 'Отправить';
         }
     });
 
-    // Fallback для UUID (если crypto.randomUUID недоступен, например по HTTP)
-    function generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    }
-
-    // 3. Сохранение и восстановление введенных данных (защита от случайного F5)
-    const fields = ['name', 'phone', 'message'];
-    
-    // Восстанавливаем при загрузке
-    fields.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const saved = sessionStorage.getItem('form_' + id);
-        if (saved) el.value = saved;
-
-        // Сохраняем при каждом изменении
-        el.addEventListener('input', () => {
-            sessionStorage.setItem('form_' + id, el.value);
-        });
+    // Восстановление сессии
+    ['name', 'phone', 'message'].forEach(id => {
+        const el = document.getElementById(id); if (!el) return;
+        const saved = sessionStorage.getItem('form_' + id); if (saved) el.value = saved;
+        el.addEventListener('input', () => sessionStorage.setItem('form_' + id, el.value));
     });
 
-    // Очищаем хранилище при успешной отправке (внутри блока if (data.ok))
-    // Вставь это туда:
-    // fields.forEach(id => sessionStorage.removeItem('form_' + id));
-
-    // Запуск
     initForm();
 });

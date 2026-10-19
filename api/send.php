@@ -46,51 +46,53 @@ if (!ratelimit_check($ip, $limit, 600)) {
     json_out(429, ['ok' => false, 'error' => 'rate_limit']);
 }
 
-// 5. Idempotency по UUID с фронта. Защита от двойного клика и от
-// ретраев после обрыва сети.
+// 5. Валидация полей. (Идет перед проверкой дублей, чтобы получить чистый телефон)
+[$clean, $errors] = validate_form($_POST);
+if ($errors) {
+    // Если данные битые, мы даже не трогаем базу. Откатывать нечего.
+    json_out(422, ['ok' => false, 'error' => 'validation', 'fields' => $errors]);
+}
+
+// 6. Idempotency по UUID и телефону. Защита от двойного клика и дублей по номеру.
 $submissionId = trim((string)($_POST['submission_id'] ?? ''));
 if (!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', $submissionId)) {
     json_out(400, ['ok' => false, 'error' => 'bad_submission_id']);
 }
 $ttl = (int)app_config()['security']['idempotency_ttl'];
-if (!idempotency_check($submissionId, $ttl)) {
+// Передаем телефон из массива $clean
+if (!idempotency_check($submissionId, $clean['phone'], $ttl)) {
     // Дубль в окне TTL — считаем успехом: клиенту важно знать, что заявка есть.
     json_out(200, ['ok' => true, 'duplicate' => true]);
 }
 
-// 6. Валидация полей.
-[$clean, $errors] = validate_form($_POST);
-if ($errors) {
-    // ВАЖНО: откатываем UUID, чтобы при исправлении ошибки форма снова ушла.
-    idempotency_release($submissionId); 
-    json_out(422, ['ok' => false, 'error' => 'validation', 'fields' => $errors]);
-}
+// 7. UTM-метки
+$utmSource = htmlspecialchars($_POST['utm_source'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+$utmMedium = htmlspecialchars($_POST['utm_medium'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-// 7. Достаём креды из БД (seed.php их туда положил).
+// 8. Достаём креды из БД
 $creds = settings_get(['telegram_token', 'telegram_chat_id']);
 if (empty($creds['telegram_token']) || empty($creds['telegram_chat_id'])) {
-    // ВАЖНО: откатываем UUID, если настройки слетели.
     idempotency_release($submissionId);
     error_log('send.php: telegram creds not configured; run app/bin/seed.php');
     json_out(500, ['ok' => false, 'error' => 'not_configured']);
 }
 
-// 8. Сообщение. ВСЕ пользовательские поля — через htmlspecialchars:
+// 9. Сообщение. ВСЕ пользовательские поля — через htmlspecialchars:
 // parse_mode=HTML, значит <, >, & в поле имени сломают разметку без экранирования.
 $esc = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
 $text = "<b>🟢 Новая заявка</b>\n\n"
       . "<b>Имя:</b> {$esc($clean['name'])}\n"
-      . "<b>Телефон:</b> {$esc($clean['phone'])}\n";
+      . "<b>Телефон:</b> {$esc($clean['phone'])}\n"
+      . "<b>Тип:</b> {$esc($clean['request_type'])}\n";
+      
+if ($utmSource) $text .= "<b>Источник:</b> {$utmSource} / {$utmMedium}\n";
 
 if ($clean['message'] !== '') {
     $text .= "<b>Сообщение:</b>\n{$esc($clean['message'])}\n";
 }
 
-// для отладки
-// $text .= "\n<i>ID: {$esc($submissionId)}</i>";
-
-// 9. Отправка.
+// 10. Отправка.
 $result = telegram_send($creds['telegram_token'], $creds['telegram_chat_id'], $text);
 if (!$result['ok']) {
     error_log('send.php: telegram failed: ' . ($result['error'] ?? 'unknown'));
