@@ -50,3 +50,5 @@ vendor/
 *.log
 /tmp/
 /tests/fixtures/*.local.*
+/dist/
+*.zip
